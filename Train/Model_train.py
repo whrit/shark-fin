@@ -1,9 +1,12 @@
+# Model_train.py
 
 import torch
 import matplotlib.pyplot as plt
 from Data.Stock_data import data
 from tradeEnv import portfolio_tradeEnv
 from Model.Deep_Q_Network import Q_Net, DQN_Agent
+from tqdm import tqdm
+from colorama import Fore, Style
 
 def Normalize(state):
     # State normalization
@@ -33,8 +36,7 @@ def DQN_train(episode, ticker, minimum):
         'rewards': [],
         'dones': [],
     }
-    for i in range(episode):
-        print('Episode:', i)
+    for i in tqdm(range(episode), desc=Fore.GREEN + 'Training Episodes' + Style.RESET_ALL, ncols=100, bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}', leave=True):
         done = False
         episode_return = 0
         # Return initial state
@@ -60,7 +62,7 @@ def DQN_train(episode, ticker, minimum):
 
         return_List.append(episode_return)
     # Model saving
-    PATH = f'../Result/agent_dqn_{ticker}.pt'
+    PATH = f'agent_dqn_{ticker}.pt'
     torch.save(agent.state_dict(), PATH, _use_new_zipfile_serialization=False)
     # Visualize reward
     plt.plot(range(len(return_List)), return_List)

@@ -15,7 +15,12 @@ class data:
     def download_data(self):
         end_date = datetime.now()
         start_date = end_date - timedelta(days=365*5)  # 5 years of data
+        print(f"Downloading data for {self.ticker} from {start_date} to {end_date}")
         df = yf.download(self.ticker, start=start_date, end=end_date)
+        print(f"Downloaded {len(df)} rows of data")
+        if df.empty:
+            print(f"Warning: No data downloaded for {self.ticker}")
+            return df
         df['Close'] = df['Adj Close']
         df = df.drop(columns=['Adj Close'])
         df['RSI'] = self.calculate_rsi(df['Close'])
@@ -24,6 +29,7 @@ class data:
         df['MACD'], df['Signal'] = self.calculate_macd(df['Close'])
         df['EXPMA'] = self.calculate_expma(df['Close'])
         df['VMACD'], _ = self.calculate_macd(df['Volume'])
+        print(f"Processed data shape: {df.shape}")
         return df
 
     def calculate_rsi(self, prices, period=14):
@@ -55,22 +61,26 @@ class data:
     def process(self):
         df = self.data.loc[:, ['Close', 'Open', 'High', 'Low', 'RSI', 'ROC', 'CCI', 'MACD', 'EXPMA', 'VMACD']]
         self.b = [df[i-self.window_length:i] for i in range(self.window_length, len(df))]
+        print(f"Processed {len(self.b)} data points")
         return self.b
 
     def train_data(self):
         self.b = self.process()
-        return self.b[:self.t]
+        train_data = self.b[:self.t]
+        print(f"Returning {len(train_data)} training data points")
+        return train_data
 
     def trade_data(self):
         self.b = self.process()
-        return self.b[self.t:]
+        trade_data = self.b[self.t:]
+        print(f"Returning {len(trade_data)} trading data points")
+        return trade_data
 
 if __name__ == "__main__":
     D = data(ticker="SPY", window_length=15, t=2000)
     b = D.trade_data()
-    print(type(b), len(b), type(b[100]))
-    print(b[100])
-
-    state = b[100]
-    state = (state - state.mean()) / (state.std())
-    print(state, '\n', state.mean())
+    print(type(b), len(b), type(b[0]) if b else "No data")
+    if b:
+        print(b[0])
+    else:
+        print("No data to display")
