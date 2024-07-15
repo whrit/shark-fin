@@ -4,7 +4,6 @@ from Data.Stock_data import data
 from tradeEnv import portfolio_tradeEnv
 from Model.Deep_Q_Network import Q_Net, DQN_Agent
 import numpy as np
-from tqdm import tqdm
 
 def Normalize(state):
     return (state - state.mean()) / (state.std())
@@ -32,12 +31,8 @@ def DQN_trade(ticker):
         return
     
     if not trade_data:
-        print(f"Error: No trading data available for ticker {ticker}")
+        print(f"Error: No data available for ticker {ticker}")
         return
-    
-    print(f"Debug: trade_data length: {len(trade_data)}")
-    print(f"Debug: Sample data point shape: {trade_data[0].shape}")
-    print(f"Debug: Sample data point:\n{trade_data[0]}")
     
     # Trading environment
     try:
@@ -48,6 +43,8 @@ def DQN_trade(ticker):
         return
     
     return_List = []
+    action_List = []
+    portfolio_value_List = []
     done = False
     
     # Get initial state
@@ -72,17 +69,20 @@ def DQN_trade(ticker):
     
     print("Starting trading loop")
     step = 0
-    for _ in tqdm(range(len(trade_data))):
+    while not done:
         try:
             action = agent.take_action(state, random=False)
             next_state, reward, done, _ = Env.step(action)
             next_state = torch.tensor(Normalize(next_state.values), dtype=torch.float32).reshape(1, -1).to(device="cuda:0")
             state = next_state
             return_List.append(reward)
+            action_List.append(action)
+            portfolio_value = Env.balance + Env.shares[-1] * Env.stock_state['Close'].values[-1]
+            portfolio_value_List.append(portfolio_value)
             
             step += 1
             if step % 50 == 0:
-                print(f"Step {step}: Action = {action}, Reward = {reward:.4f}, Done = {done}")
+                print(f"Step {step}: Action = {action}, Reward = {reward:.4f}, Portfolio Value = {portfolio_value:.2f}")
             
             if done:
                 print(f"Episode finished after {step} steps")
@@ -92,7 +92,7 @@ def DQN_trade(ticker):
             break
     
     print(f"Trading loop completed. Total steps: {step}")
-    print(f"Final portfolio value: {Env.balance + Env.shares[-1] * Env.stock_state['Close'].values[-1]:.2f}")
+    print(f"Final portfolio value: {portfolio_value_List[-1]:.2f}")
     
     # Visualize reward
     plt.figure(figsize=(10, 6))
@@ -103,17 +103,26 @@ def DQN_trade(ticker):
     plt.savefig(f"{ticker}_rewards.png")
     plt.close()
     
-    # Visualize cumulative return
-    cumulative_return = np.cumsum(return_List)
+    # Visualize portfolio value
     plt.figure(figsize=(10, 6))
-    plt.plot(range(len(cumulative_return)), cumulative_return)
-    plt.title(f"Cumulative Return for {ticker}")
+    plt.plot(range(len(portfolio_value_List)), portfolio_value_List)
+    plt.title(f"Portfolio Value over time for {ticker}")
     plt.xlabel("Steps")
-    plt.ylabel("Cumulative Return")
-    plt.savefig(f"{ticker}_cumulative_return.png")
+    plt.ylabel("Portfolio Value")
+    plt.savefig(f"{ticker}_portfolio_value.png")
+    plt.close()
+    
+    # Visualize actions
+    plt.figure(figsize=(10, 6))
+    plt.plot(range(len(action_List)), action_List)
+    plt.title(f"Actions over time for {ticker}")
+    plt.xlabel("Steps")
+    plt.ylabel("Action")
+    plt.yticks([-1, 0, 1], ['Sell', 'Hold', 'Buy'])
+    plt.savefig(f"{ticker}_actions.png")
     plt.close()
 
-    print(f"Plots saved as {ticker}_rewards.png and {ticker}_cumulative_return.png")
+    print(f"Plots saved as {ticker}_rewards.png, {ticker}_portfolio_value.png, and {ticker}_actions.png")
 
 if __name__ == '__main__':
     DQN_trade(ticker='SPY')
